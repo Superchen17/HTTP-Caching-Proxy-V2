@@ -56,16 +56,6 @@ namespace{
     EXPECT_EQ(expected6, parser6.getParsedLines());
   }
 
-  TEST(RequestParser, vectorConstructor){
-    RequestParser parser1(std::vector<std::string>{"hello", "world"});
-    std::vector<std::string> expected1{"hello", "world"};
-    EXPECT_EQ(expected1, parser1.getParsedLines());
-
-    RequestParser parser2(std::vector<std::string>{});
-    std::vector<std::string> expected2;
-    EXPECT_EQ(expected2, parser2.getParsedLines());
-  }
-
   TEST(RequestParser, parseMethod_valid){
     RequestParser parser(getRequest1);
     EXPECT_EQ("GET", parser.parseMethod());

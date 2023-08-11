@@ -17,6 +17,7 @@ namespace{
   TEST(Request, parserConstructor){
     RequestParser parser(getRequest1);
     Request request(parser);
+    EXPECT_EQ(getRequest1, request.getRawRequest());
     EXPECT_EQ("GET", request.getMethod());
     EXPECT_EQ("generalroboticslab.com", request.getHost());
     EXPECT_EQ("80", request.getPort());
@@ -31,6 +32,7 @@ namespace{
       std::vector<std::string>{"gzip", "deflate"}
     );
 
+    EXPECT_EQ(getRequest1, request.getRawRequest());
     EXPECT_EQ("GET", request.getMethod());
     EXPECT_EQ("generalroboticslab.com", request.getHost());
     EXPECT_EQ("80", request.getPort());

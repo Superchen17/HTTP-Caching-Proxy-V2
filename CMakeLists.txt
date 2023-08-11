@@ -15,9 +15,11 @@ find_package(GTest REQUIRED)
 set(APP_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/client-info.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/logger.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/parser.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/proxy-server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/request-parser.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/request.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/response-parser.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/tcp-server.cpp
 )
 
