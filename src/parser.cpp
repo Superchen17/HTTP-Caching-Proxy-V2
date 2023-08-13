@@ -1,10 +1,26 @@
 #include "parser.h"
+#include "exception.h"
 
 Parser::Parser(std::string rawString): rawString(rawString){
-  this->fromStringToVector(rawString);
+  std::string headerSection = this->getHeaderSection();
+  this->fromStringToVector(headerSection);
 }
 
 Parser::~Parser(){}
+
+std::vector<std::string> Parser::getParsedLines() const{
+  return this->lines;
+}
+
+std::string Parser::getHeaderSection(){
+  std::string delimiter = "\r\n\r\n";
+  size_t delimiterPos;
+  if((delimiterPos = this->rawString.find(delimiter)) == std::string::npos){
+    throw ParsingException("cannot find section delimiter");
+  }
+  std::string headerSection = this->rawString.substr(0, delimiterPos);
+  return headerSection;
+}
 
 void Parser::fromStringToVector(std::string inputString){
   std::string lineDelimiter = "\r\n";
@@ -45,4 +61,14 @@ std::string Parser::getLineContainingHeader(std::string header){
     }
   }
   return "";
+}
+
+std::string Parser::getValueFromHeader(std::string header){
+  std::string lineWithHeader = this->getLineContainingHeader(header);
+  if(lineWithHeader.empty()){
+    return lineWithHeader;
+  }
+
+  std::string headerValue = this->removeLineHeaderAndLineEnd(lineWithHeader, header, "\r\n");
+  return headerValue;
 }

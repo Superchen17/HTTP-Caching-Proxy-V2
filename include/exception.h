@@ -39,13 +39,38 @@ class LoggerException: public std::exception{
     }
 };
 
+class ParsingException: public std::exception{
+  private:
+    std::string errMsg;
+
+  public:
+    ParsingException(): errMsg("parsing error"){}
+    ParsingException(std::string _errMsg): errMsg(_errMsg){}
+    virtual const char* what() const throw(){
+      return this->errMsg.c_str();
+    }
+};
+
 class RequestParsingException: public std::exception{
   private:
     std::string errMsg;
 
   public:
-    RequestParsingException(): errMsg("tcp server error"){}
+    RequestParsingException(): errMsg("request parsing error"){}
     RequestParsingException(std::string _errMsg): errMsg(_errMsg){}
+    virtual const char* what() const throw(){
+      return this->errMsg.c_str();
+    }
+};
+
+
+class ResponseParsingException: public std::exception{
+  private:
+    std::string errMsg;
+
+  public:
+    ResponseParsingException(): errMsg("response parsing error"){}
+    ResponseParsingException(std::string _errMsg): errMsg(_errMsg){}
     virtual const char* what() const throw(){
       return this->errMsg.c_str();
     }

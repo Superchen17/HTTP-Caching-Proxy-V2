@@ -25,8 +25,10 @@ set(APP_SRC
 
 set(TEST_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/test/client-info-test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/test/parser-test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test/request-parser-test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test/request-test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/test/response-parser-test.cpp
 )
 
 add_executable(${PROJECT_NAME} 

@@ -12,7 +12,6 @@ class RequestParser: public Parser{
     ~RequestParser();
 
     std::string getRawRequest() const;
-    std::vector<std::string> getParsedLines() const;
     std::string parseMethod();
     std::unordered_map<std::string, std::string> parseHostAndPort();
     std::vector<std::string> parseAcceptedEncoding();

@@ -30,49 +30,15 @@ namespace{
     }, RequestParsingException);
   }
 
-  TEST(RequestParser, stringConstructor){
-    RequestParser parser1("hello\r\nworld\r\n");
-    std::vector<std::string> expected1{"hello", "world"};
-    EXPECT_EQ(expected1, parser1.getParsedLines());
-
-    RequestParser parser2("hello\r\nworld");
-    std::vector<std::string> expected2{"hello", "world"};
-    EXPECT_EQ(expected2, parser2.getParsedLines());
-
-    RequestParser parser3("hello");
-    std::vector<std::string> expected3{"hello"};
-    EXPECT_EQ(expected3, parser3.getParsedLines());
-
-    RequestParser parser4("");
-    std::vector<std::string> expected4;
-    EXPECT_EQ(expected4, parser4.getParsedLines());
-
-    RequestParser parser5("\r\n");
-    std::vector<std::string> expected5;
-    EXPECT_EQ(expected5, parser5.getParsedLines());
-
-    RequestParser parser6("\r\nhello");
-    std::vector<std::string> expected6{"hello"};
-    EXPECT_EQ(expected6, parser6.getParsedLines());
-  }
-
   TEST(RequestParser, parseMethod_valid){
     RequestParser parser(getRequest1);
     EXPECT_EQ("GET", parser.parseMethod());
   }
 
   TEST(RequestParser, parseMethod_invalid){
-    RequestParser parser("GETasdf\r\n");
+    RequestParser parser("GETasdf\r\n\r\n");
      expect_throw_requestParsingError(
       "error: failed to parse method from request",
-      std::bind(&RequestParser::parseMethod, &parser)
-    );
-  }
-
-  TEST(RequestParser, parseMethod_empty){
-    RequestParser parser("\r\n");
-    expect_throw_requestParsingError(
-      "error: failed to parse raw request string to line vector",
       std::bind(&RequestParser::parseMethod, &parser)
     );
   }
@@ -88,7 +54,7 @@ namespace{
   TEST(RequestParser, parseHostAndPort_valid_explicitPort){
     RequestParser parser(
       "GET http://generalroboticslab.com/ HTTP/1.1\r\n"  
-      "Host: generalroboticslab.com:8080\r\n"
+      "Host: generalroboticslab.com:8080\r\n\r\n"
     );
     std::unordered_map<std::string, std::string> result = parser.parseHostAndPort();
     EXPECT_EQ("generalroboticslab.com", result["host"]);
@@ -99,7 +65,7 @@ namespace{
   TEST(RequestParser, parseHostAndPort_lineNotExit){
     RequestParser parser(
       "GET http://generalroboticslab.com/ HTTP/1.1\r\n"
-      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0\r\n"
+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0\r\n\r\n"
     );
     expect_throw_requestParsingError(
       "error: cannot find host from request",
@@ -110,7 +76,7 @@ namespace{
   TEST(RequestParser, parseHostAndPort_emptyPort){
     RequestParser parser(
       "GET http://generalroboticslab.com/ HTTP/1.1\r\n"
-      "Host: generalroboticslab.com:\r\n"
+      "Host: generalroboticslab.com:\r\n\r\n"
     );
     expect_throw_requestParsingError(
       "error: empty port",
@@ -123,7 +89,7 @@ namespace{
     for(size_t i = 0; i < invalidPorts.size(); i++){
       RequestParser parser1(
         "GET http://generalroboticslab.com/ HTTP/1.1\r\nHost: generalroboticslab.com:" 
-        + invalidPorts[i] + "\r\n"
+        + invalidPorts[i] + "\r\n\r\n"
       );
       expect_throw_requestParsingError(
         "error: invalid port number of \"" + invalidPorts[i] + "\"",
@@ -135,7 +101,7 @@ namespace{
   TEST(RequestParser, parseHostAndPort_emptyHost){
     RequestParser parser(
       "GET http://generalroboticslab.com/ HTTP/1.1\r\n"
-      "Host: :8080\r\n"
+      "Host: :8080\r\n\r\n"
     );
     expect_throw_requestParsingError(
       "error: empty host",

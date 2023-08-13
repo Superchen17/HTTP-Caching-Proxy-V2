@@ -11,10 +11,6 @@ std::string RequestParser::getRawRequest() const{
   return this->rawString;
 }
 
-std::vector<std::string> RequestParser::getParsedLines() const{
-  return this->lines;
-}
-
 std::string RequestParser::parseMethod(){
   if(this->lines.empty()){
     throw RequestParsingException("error: failed to parse raw request string to line vector");
@@ -81,24 +77,20 @@ std::unordered_map<std::string, std::string> RequestParser::parseHostAndPort(){
 std::vector<std::string> RequestParser::parseAcceptedEncoding(){
   std::vector<std::string> acceptedEncoding;
 
-  std::string lineEnd = "\r\n";
-  std::string lineHeader = "Accept-Encoding: ";
-  std::string delimiter = ", ";
-
-  std::string lineWithEncoding = this->getLineContainingHeader(lineHeader);
-  if(lineWithEncoding.empty()){
+  std::string acceptedEncodingValues = this->getValueFromHeader("Accept-Encoding: ");
+  if(acceptedEncodingValues.empty()){
     acceptedEncoding.push_back("*");
     return acceptedEncoding;
   }
-  lineWithEncoding = this->removeLineHeaderAndLineEnd(lineWithEncoding, lineHeader, lineEnd);
 
+  std::string delimiter = ", ";
   size_t delimiterPos;
-  while((delimiterPos = lineWithEncoding.find(delimiter)) != std::string::npos){
-    std::string currentEncoding = lineWithEncoding.substr(0, delimiterPos);
+  while((delimiterPos = acceptedEncodingValues.find(delimiter)) != std::string::npos){
+    std::string currentEncoding = acceptedEncodingValues.substr(0, delimiterPos);
     acceptedEncoding.push_back(currentEncoding);
-    lineWithEncoding = lineWithEncoding.substr(delimiterPos + delimiter.length());
+    acceptedEncodingValues = acceptedEncodingValues.substr(delimiterPos + delimiter.length());
   }
-  acceptedEncoding.push_back(lineWithEncoding);
+  acceptedEncoding.push_back(acceptedEncodingValues);
 
   return acceptedEncoding;
 }
