@@ -80,4 +80,47 @@ namespace{
       );
     }
   }
+
+  TEST(ResponseParser, parseContentLength_valid){
+    ResponseParser parser1(response1);
+    EXPECT_EQ(2063, parser1.parseContentLength());
+
+    ResponseParser parser2("HTTP/1.1 200 OK\r\n\r\n");
+    EXPECT_EQ(-1, parser2.parseContentLength());
+
+    ResponseParser parser3(
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Length: 1\r\n\r\n"
+    );
+    EXPECT_EQ(1, parser3.parseContentLength());
+  }
+
+  TEST(ResponseParser, parseContentLength_invalid){
+    std::unordered_set<std::string> invalidContentLengths{
+      "20x", "asdf", "0", "012"
+    };
+    for(std::string invalidLength: invalidContentLengths){
+      ResponseParser parser(
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Length: " + invalidLength + "\r\n\r\n"
+      );
+      expect_throw_ResponseParsingError(
+        "error: content length not a number",
+        std::bind(&ResponseParser::parseContentLength, &parser)
+      );
+    }
+  }
+
+  TEST(ResponseParser, parseCacheControl){
+    ResponseParser parser1(response1);
+    std::unordered_map<std::string, std::string> expected1({{"max-age", "42980"}, {"public", ""}});
+    EXPECT_EQ(expected1, parser1.parseCacheControl());
+
+    ResponseParser parser2(
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Length: 1\r\n\r\n"
+    );
+    std::unordered_map<std::string, std::string> expected2;
+    EXPECT_EQ(expected2, parser2.parseCacheControl());
+  }
 }

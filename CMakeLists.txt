@@ -20,6 +20,7 @@ set(APP_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/request-parser.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/request.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/response-parser.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/response.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/tcp-server.cpp
 )
 
@@ -29,6 +30,7 @@ set(TEST_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/test/request-parser-test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test/request-test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test/response-parser-test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/test/response-test.cpp
 )
 
 add_executable(${PROJECT_NAME} 

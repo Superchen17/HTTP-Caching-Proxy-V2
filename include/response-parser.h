@@ -14,6 +14,7 @@ class ResponseParser: public Parser{
     ResponseParser(std::string rawResponse);
     ~ResponseParser();
 
+    std::string getRawResponse() const;
     std::string parseHttpVersion();
     std::string parseStatus();
     int parseContentLength();
@@ -21,7 +22,7 @@ class ResponseParser: public Parser{
     std::string parseLastModified();
     std::string parseETag();
     std::string parseExpires();
-    std::unordered_map<std::string, std::string> cacheControl();
+    std::unordered_map<std::string, std::string> parseCacheControl();
 };
 
 #endif

@@ -8,6 +8,10 @@ ResponseParser::ResponseParser(std::string rawResponse): Parser::Parser(rawRespo
 
 ResponseParser::~ResponseParser(){}
 
+std::string ResponseParser::getRawResponse() const{
+  return this->rawString;
+}
+
 std::string ResponseParser::parseHttpVersion(){
   // http version is always on the first line
   std::string lineWithHttpVersion = this->lines[0];
@@ -54,10 +58,9 @@ int ResponseParser::parseContentLength(){
     return -1;
   }
 
-  for(int i = 0; i < contentLength.length(); i++){
-    if(!std::isdigit(contentLength[i])){
-      throw ResponseParsingException("error: content length not a number");
-    }
+  std::regex contentLengthPattern("^[1-9][0-9]*$");
+  if(!std::regex_match(contentLength, contentLengthPattern)){
+    throw ResponseParsingException("error: content length not a number");
   }
 
   return std::stoi(contentLength);
@@ -72,14 +75,14 @@ std::string ResponseParser::parseLastModified(){
 }
 
 std::string ResponseParser::parseETag(){
-  return this->getValueFromHeader("ETag: ");
+  return this->getValueFromHeader("Etag: ");
 }
 
 std::string ResponseParser::parseExpires(){
   return this->getValueFromHeader("Expires: ");
 }
 
-std::unordered_map<std::string, std::string> ResponseParser::cacheControl(){
+std::unordered_map<std::string, std::string> ResponseParser::parseCacheControl(){
   std::unordered_map<std::string, std::string> cacheControl;
   std::string cacheControlContent = this->getValueFromHeader("Cache-Control: ");
   if(cacheControlContent.empty()){
@@ -91,8 +94,9 @@ std::unordered_map<std::string, std::string> ResponseParser::cacheControl(){
   while((delimiterPos = cacheControlContent.find(delimiter)) != std::string::npos){
     std::string currentEntry = cacheControlContent.substr(0, delimiterPos);
     cacheControlContent = cacheControlContent.substr(delimiterPos + delimiter.length());
-    this->appendToCacheControl(cacheControl, cacheControlContent);
+    this->appendToCacheControl(cacheControl, currentEntry);
   }
+  this->appendToCacheControl(cacheControl, cacheControlContent);
 
   return cacheControl;
 }
