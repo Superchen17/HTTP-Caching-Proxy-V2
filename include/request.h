@@ -27,6 +27,7 @@ class Request{
     std::vector<std::string> acceptedEncoding;
 
   public:
+    Request();
     Request(std::string rawRequest, std::string method, 
       std::string host, std::string port, std::vector<std::string> acceptedEncoding);
     Request(RequestParser& parser);

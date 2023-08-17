@@ -1,6 +1,7 @@
 #include <sys/socket.h>
 
 #include "response.h"
+#include "exception.h"
 
 Response::Response(ResponseParser& parser){
   this->rawResponse = parser.getRawResponse();
@@ -64,7 +65,14 @@ void Response::getRemainingBodyFromRemote(int remoteSocketFd, int maxBufferSize)
   while(remainingLength > 0){
     std::vector<char> buffer(maxBufferSize);
     int batchLength = recv(remoteSocketFd, buffer.data(),  buffer.size(), 0);
-    this->rawResponse.append(buffer.data());
+    if(batchLength == -1){
+      throw ResponseException(
+        "error: failed to receive the remaining response from remote file descriptor " 
+        + std::to_string(remoteSocketFd)
+      );
+    }
+
+    this->rawResponse.append(std::string(buffer.data(), batchLength));
     remainingLength -= batchLength;
   }
 }

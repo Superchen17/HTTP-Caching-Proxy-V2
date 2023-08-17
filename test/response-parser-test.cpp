@@ -93,11 +93,17 @@ namespace{
       "Content-Length: 1\r\n\r\n"
     );
     EXPECT_EQ(1, parser3.parseContentLength());
+
+    ResponseParser parser4(
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Length: 0\r\n\r\n"
+    );
+    EXPECT_EQ(0, parser4.parseContentLength());
   }
 
   TEST(ResponseParser, parseContentLength_invalid){
     std::unordered_set<std::string> invalidContentLengths{
-      "20x", "asdf", "0", "012"
+      "20x", "asdf", "012"
     };
     for(std::string invalidLength: invalidContentLengths){
       ResponseParser parser(

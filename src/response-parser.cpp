@@ -58,7 +58,7 @@ int ResponseParser::parseContentLength(){
     return -1;
   }
 
-  std::regex contentLengthPattern("^[1-9][0-9]*$");
+  std::regex contentLengthPattern("^(0|[1-9][0-9]*)$");
   if(!std::regex_match(contentLength, contentLengthPattern)){
     throw ResponseParsingException("error: content length not a number");
   }

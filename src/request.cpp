@@ -3,6 +3,8 @@
 #include "request.h"
 #include "exception.h"
 
+Request::Request(){}
+
 // TODO: add rule checker
 Request::Request(std::string rawRequest, std::string method, 
       std::string host, std::string port, std::vector<std::string> acceptedEncoding):
