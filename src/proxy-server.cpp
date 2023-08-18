@@ -34,9 +34,7 @@ void ProxyServer::handleClientConnection(ClientInfo* clientInfo){
     this->processGetRequest(request, clientInfo);
   }
   else if(request.getMethod() == "POST"){
-    // TODO
-    Response response = this->composeResponse("200 OK", "asdf");
-    this->sendResponseToClient(clientInfo, response);
+    this->processPostRequest(request, clientInfo);
   }
   else if(request.getMethod() == "CONNECT"){
     this->processConnectRequest(request, clientInfo);
@@ -110,6 +108,22 @@ void ProxyServer::sendResponseToClient(ClientInfo* clientInfo, Response& respons
   delete clientInfo;
 }
 
+Response ProxyServer::receiveResponseFromRemote(Request& request, int remoteSocketFd){
+  std::vector<char> buffer(this->maxBufferSize);
+  int recvLength = recv(remoteSocketFd, buffer.data(), buffer.size(), 0);
+  if(recvLength == -1){
+    throw ProxyServerException("error: failed to receive response from " + request.getHost());
+  }
+
+  ResponseParser responseParser(std::string(buffer.data(), recvLength));
+  Response response(responseParser);
+  if(response.getContentLength() != -1){
+    response.getRemainingBodyFromRemote(remoteSocketFd, this->maxBufferSize);
+  }
+  close(remoteSocketFd);
+  return response;
+}
+
 void ProxyServer::processGetRequest(Request& request, ClientInfo* clientInfo){
   int remoteSocketFd;
   int status;
@@ -121,17 +135,27 @@ void ProxyServer::processGetRequest(Request& request, ClientInfo* clientInfo){
       throw ProxyServerException("error: failed to send request to " + request.getHost());
     }
 
-    std::vector<char> buffer(this->maxBufferSize);
-    int recvLength = recv(remoteSocketFd, buffer.data(), buffer.size(), 0);
-    if(recvLength == -1){
-      throw ProxyServerException("error: failed to receive response from " + request.getHost());
+    Response response = this->receiveResponseFromRemote(request, remoteSocketFd);
+    this->sendResponseToClient(clientInfo, response);
+  }
+  catch(std::exception& e){ // handling all server side error generically
+    Response response = this->composeResponse("502 Bad Gateway", e.what());
+    this->sendResponseToClient(clientInfo, response);
+  }
+}
+
+void ProxyServer::processPostRequest(Request& request, ClientInfo* clientInfo){
+  int remoteSocketFd;
+  int status;
+
+  try{
+    remoteSocketFd = this->createSocketAndConnectRemote(request.getHost().c_str(), request.getPort().c_str());
+    status = send(remoteSocketFd, request.getRawRequest().c_str(), request.getRawRequest().length(), 0);
+    if(status == -1){
+      throw ProxyServerException("error: failed to send request to " + request.getHost());
     }
 
-    ResponseParser responseParser(std::string(buffer.data(), recvLength));
-    Response response(responseParser);
-    if(response.getContentLength() != -1){
-      response.getRemainingBodyFromRemote(remoteSocketFd, this->maxBufferSize);
-    }
+    Response response = this->receiveResponseFromRemote(request, remoteSocketFd);
     this->sendResponseToClient(clientInfo, response);
   }
   catch(std::exception& e){ // handling all server side error generically
@@ -155,6 +179,9 @@ void ProxyServer::processConnectRequest(Request& request, ClientInfo* clientInfo
       "error: failed to send connect success back to client " 
       + clientInfo->getClientAddr() + ":" + std::to_string(clientInfo->getClientPort())
     );
+    close(clientSocketFd);
+    delete clientInfo;
+    return;
   }
 
   // start client <-> remote multiplexing

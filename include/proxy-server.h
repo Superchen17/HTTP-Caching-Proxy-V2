@@ -13,7 +13,9 @@ class ProxyServer: public TcpServer{
     Response composeResponse(std::string status, std::string body);
     Request receiveRequestFromClient(ClientInfo* clientInfo);
     void sendResponseToClient(ClientInfo* clientInfo, Response& response);
+    Response receiveResponseFromRemote(Request& request, int remoteSocketFd);
     void processGetRequest(Request& request, ClientInfo* clientInfo);
+    void processPostRequest(Request& request, ClientInfo* clientInfo);
     void processConnectRequest(Request& request, ClientInfo* clientInfo);
     void performIOMultiplexing(std::vector<int>& fileDescriptors);
 
