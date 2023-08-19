@@ -6,9 +6,11 @@
 #include "exception.h"
 #include "request-parser.h"
 #include "request.h"
+#include "cache.h"
 
-ProxyServer::ProxyServer(const char* hostname, const char* port, int backlogLength, Logger& logger, int maxBufferSize): 
-  TcpServer::TcpServer(hostname, port, backlogLength, logger), maxBufferSize(maxBufferSize){}
+ProxyServer::ProxyServer(const char* hostname, const char* port, int backlogLength, 
+                        Logger& logger, int maxBufferSize, Cache<Request, Response, Request::RequestHash>& cache): 
+  TcpServer::TcpServer(hostname, port, backlogLength, logger), maxBufferSize(maxBufferSize), cache(cache){}
 
 ProxyServer::~ProxyServer(){
   close(this->serverSocketFd);

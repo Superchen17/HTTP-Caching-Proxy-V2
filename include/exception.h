@@ -88,5 +88,17 @@ class ResponseException: public std::exception{
     }
 };
 
+class DateTimeException: public std::exception{
+  private:
+    std::string errMsg;
+
+  public:
+    DateTimeException(): errMsg("response error"){}
+    DateTimeException(std::string _errMsg): errMsg(_errMsg){}
+    virtual const char* what() const throw(){
+      return this->errMsg.c_str();
+    }
+};
+
 #endif
 

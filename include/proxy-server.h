@@ -5,10 +5,12 @@
 #include "response-parser.h"
 #include "response.h"
 #include "request.h"
+#include "cache.h"
 
 class ProxyServer: public TcpServer{
   private:
     int maxBufferSize;
+    Cache<Request, Response, Request::RequestHash>& cache;
     
     Response composeResponse(std::string status, std::string body);
     Request receiveRequestFromClient(ClientInfo* clientInfo);
@@ -20,7 +22,8 @@ class ProxyServer: public TcpServer{
     void performIOMultiplexing(std::vector<int>& fileDescriptors);
 
   public:
-    ProxyServer(const char* hostname, const char* port, int backlogLength, Logger& logger, int maxBufferSize);
+    ProxyServer(const char* hostname, const char* port, int backlogLength, 
+                Logger& logger, int maxBufferSize, Cache<Request, Response, Request::RequestHash>& cache);
     virtual ~ProxyServer();
 
     virtual void handleClientConnection(ClientInfo* clientInfo);

@@ -5,7 +5,6 @@
 #include <queue>
 
 #include "cache.h"
-#include "request.h"
 
 template<typename K, typename V, typename Hash = std::hash<K> >
 class FifoCache: public Cache<K, V, Hash>{

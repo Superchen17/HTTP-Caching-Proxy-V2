@@ -19,6 +19,20 @@ class Response{
     std::unordered_map<std::string, std::string> cacheControl;    
 
   public:
+    enum class CachingStatus {
+      VALID,
+      REQUIRE_REVALIDATION,
+      EXPIRED
+    };
+
+    enum class Cacheability {
+      NO_CACHE_PRIVATE,             // private
+      NO_CACHE_NO_STORE,            // no-store
+      NO_CACHE_BAD_RESPONSE_STATUS, // response not 200 OK
+      CACHE_NEED_REVALIDATION,        // no-cache
+      CACHE_WILL_EXPIRE             // max-age || expires
+    };
+
     Response(ResponseParser& parser);
     Response(){} // TODO
     ~Response();
