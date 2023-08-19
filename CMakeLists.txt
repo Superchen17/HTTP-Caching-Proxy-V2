@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.7 FATAL_ERROR)
 
 project(http-proxy)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-fprofile-arcs -ftest-coverage")
 set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
@@ -26,6 +26,7 @@ set(APP_SRC
 
 set(TEST_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/test/client-info-test.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/test/fifo-cache-test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test/parser-test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test/request-parser-test.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test/request-test.cpp

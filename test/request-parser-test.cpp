@@ -43,6 +43,22 @@ namespace{
     );
   }
 
+  TEST(RequestParser, parseResource_valid){
+    RequestParser parser(getRequest1);
+    EXPECT_EQ("http://generalroboticslab.com/", parser.parseResource());
+  }
+
+  TEST(RequestParser, parseResource_invalid){
+    RequestParser parser(
+      "http://generalroboticslab.com/ HTTP/1.1\r\n"  
+      "Host: generalroboticslab.com:8080\r\n\r\n"
+    );
+     expect_throw_requestParsingError(
+      "error: failed to parse resource from request",
+      std::bind(&RequestParser::parseResource, &parser)
+    );
+  }
+
   TEST(RequestParser, parseHostAndPort_valid_implicitPort){
     RequestParser parser(getRequest1);
     std::unordered_map<std::string, std::string> result = parser.parseHostAndPort();

@@ -17,6 +17,14 @@ Response::Response(ResponseParser& parser){
 
 Response::~Response(){}
 
+bool Response::operator==(Response& rhs) const{
+  return this->getRawResponse().compare(rhs.getRawResponse()) == 0;
+}
+
+bool Response::operator==(const Response& rhs) const{
+  return this->getRawResponse().compare(rhs.getRawResponse()) == 0;
+}
+
 std::string Response::getRawResponse() const{
   return this->rawResponse;
 }

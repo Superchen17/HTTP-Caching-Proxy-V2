@@ -19,22 +19,33 @@
 // Upgrade-Insecure-Requests: 1
 
 class Request{
+
   private:
     std::string rawRequest;
     std::string method;
+    std::string resource;
     std::string host;
     std::string port;
     std::vector<std::string> acceptedEncoding;
 
   public:
+
+    class RequestHash{
+      public:
+        size_t operator()(const Request& request) const;
+    };
+
     Request();
     Request(std::string rawRequest, std::string method, 
       std::string host, std::string port, std::vector<std::string> acceptedEncoding);
     Request(RequestParser& parser);
+    bool operator==(Request& rhs) const;
+    bool operator==(const Request& rhs) const;
     ~Request();
 
     std::string getRawRequest() const;
     std::string getMethod() const;
+    std::string getResource() const;
     std::string getHost() const;
     std::string getPort() const;
     std::vector<std::string> getAcceptedEncoding() const;

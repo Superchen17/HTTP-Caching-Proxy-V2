@@ -20,7 +20,10 @@ class Response{
 
   public:
     Response(ResponseParser& parser);
+    Response(){} // TODO
     ~Response();
+    bool operator==(Response& rhs) const;
+    bool operator==(const Response& rhs) const;
 
     std::string getRawResponse() const;
     std::string getHttpVersion() const;

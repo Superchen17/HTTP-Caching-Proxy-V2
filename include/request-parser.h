@@ -13,6 +13,7 @@ class RequestParser: public Parser{
 
     std::string getRawRequest() const;
     std::string parseMethod();
+    std::string parseResource();
     std::unordered_map<std::string, std::string> parseHostAndPort();
     std::vector<std::string> parseAcceptedEncoding();
 };

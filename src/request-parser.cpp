@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <regex>
 
 #include "request-parser.h"
 #include "exception.h"
@@ -15,15 +16,32 @@ std::string RequestParser::parseMethod(){
   if(this->lines.empty()){
     throw RequestParsingException("error: failed to parse raw request string to line vector");
   }
-  std::string lineWithMethod = this->lines[0]; // method always on http request 1st line
-  std::string delimiter = " ";
-  size_t delimieterPosition = lineWithMethod.find(delimiter);
-  
-  if(delimieterPosition == std::string::npos){
+  std::string lineWithMethod = this->lines[0];
+
+  // match the substring between start aand 1st spaces (1st capture group)
+  std::regex pattern("^(.*?)\\ ");
+  std::smatch matches;
+  bool exists = std::regex_search(lineWithMethod, matches, pattern);
+  if(!exists){
     throw RequestParsingException("error: failed to parse method from request");
   }
-  std::string method = lineWithMethod.substr(0, delimieterPosition);
-  return method;
+  return matches[1].str();
+}
+
+std::string RequestParser::parseResource(){
+  if(this->lines.empty()){
+    throw RequestParsingException("error: failed to parse raw request string to line vector");
+  }
+  std::string lineWithResource = this->lines[0];
+
+  // match the substring between 2 spaces (1st capture group)
+  std::regex pattern("\\ (.*?)\\ ");
+  std::smatch matches;
+  bool exists = std::regex_search(lineWithResource, matches, pattern);
+  if(!exists){
+    throw RequestParsingException("error: failed to parse resource from request");
+  }
+  return matches[1].str();
 }
 
 std::unordered_map<std::string, std::string> RequestParser::parseHostAndPort(){
@@ -59,11 +77,12 @@ std::unordered_map<std::string, std::string> RequestParser::parseHostAndPort(){
     throw RequestParsingException("error: empty port");
   }
 
-  // port illegal if contains not only digits
-  if(std::find_if(hostAndPort["port"].begin(), hostAndPort["port"].end(), 
-      [](unsigned char c) { return !std::isdigit(c); }) != hostAndPort["port"].end()){
-    std::string errMsg = "error: invalid port number of \"" + hostAndPort["port"] + "\"";
-    throw RequestParsingException(errMsg.c_str());
+  // port valid between 0 - 65535
+  std::regex statusPattern(
+    "^((6553[0-5])|(655[0-2][0-9])|(65[0-4][0-9]{2})|(6[0-4][0-9]{3})|([1-5][0-9]{4})|([0-5]{0,5})|([0-9]{1,4}))$"
+  );
+  if(!std::regex_match(hostAndPort["port"], statusPattern)){
+    throw RequestParsingException("error: invalid port number of \"" + hostAndPort["port"] + "\"");
   }
 
   // host illegal if empty
