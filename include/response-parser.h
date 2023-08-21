@@ -2,6 +2,7 @@
 #define __RESPONSE_PARSER_H__
 
 #include <unordered_map>
+#include <unordered_set>
 
 #include "parser.h"
 
@@ -22,6 +23,7 @@ class ResponseParser: public Parser{
     std::string parseLastModified();
     std::string parseETag();
     std::string parseExpires();
+    std::unordered_set<std::string> parseTransferEncoding();
     std::unordered_map<std::string, std::string> parseCacheControl();
 };
 

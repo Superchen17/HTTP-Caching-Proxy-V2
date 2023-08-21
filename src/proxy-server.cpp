@@ -110,7 +110,14 @@ void ProxyServer::sendResponseToClient(ClientInfo* clientInfo, Response& respons
   delete clientInfo;
 }
 
-Response ProxyServer::receiveResponseFromRemote(Request& request, int remoteSocketFd){
+Response ProxyServer::receiveResponseFromRemote(Request& request){
+  int remoteSocketFd = this->createSocketAndConnectRemote(request.getHost().c_str(), request.getPort().c_str());
+
+  int status = send(remoteSocketFd, request.getRawRequest().c_str(), request.getRawRequest().length(), 0);
+  if(status == -1){
+    throw ProxyServerException("error: failed to send request to " + request.getHost());
+  }
+
   std::vector<char> buffer(this->maxBufferSize);
   int recvLength = recv(remoteSocketFd, buffer.data(), buffer.size(), 0);
   if(recvLength == -1){
@@ -131,13 +138,61 @@ void ProxyServer::processGetRequest(Request& request, ClientInfo* clientInfo){
   int status;
 
   try{
-    remoteSocketFd = this->createSocketAndConnectRemote(request.getHost().c_str(), request.getPort().c_str());
-    status = send(remoteSocketFd, request.getRawRequest().c_str(), request.getRawRequest().length(), 0);
-    if(status == -1){
-      throw ProxyServerException("error: failed to send request to " + request.getHost());
+    Response response;
+    std::optional<Response> responseExist = this->cache.get(request);
+
+    if(responseExist){ // cached, check caching status
+      response = *responseExist;
+      Response revalidationResponse;
+
+      switch (response.checkCachingStatus()){
+        case Response::CachingStatus::VALID:
+          this->logger.log("in cache, valid");
+          break;
+
+        case Response::CachingStatus::REQUIRE_REVALIDATION:
+          this->logger.log("in cache, requires revalidation");
+          revalidationResponse = this->receiveRevalidationFromRemote(request, response);
+
+          if(revalidationResponse.getStatus() == "304 Not Modified" 
+          || revalidationResponse.getStatus() == "304 NOT MODIFIED"){
+            this->logger.log("revalidated, not modified");
+          }
+          else{
+            this->logger.log("invalidated, respond with fresh response");
+            response = revalidationResponse;
+            this->tryCacheResponse(request, response);
+          }
+          break;
+
+        case Response::CachingStatus::EXPIRED:
+          this->logger.log("in cache, expired");
+          response = this->receiveResponseFromRemote(request);
+          this->tryCacheResponse(request, response);
+          break;
+
+        default:
+          this->logger.log("in cache, unhandled checking status, revalidate anyway");
+          revalidationResponse = this->receiveRevalidationFromRemote(request, response);
+
+          if(revalidationResponse.getStatus() == "304 Not Modified" 
+          || revalidationResponse.getStatus() == "304 NOT MODIFIED"){
+            this->logger.log("revalidated, not modified");
+          }
+          else{
+            this->logger.log("invalidated, respond with fresh response");
+            response = revalidationResponse;
+            this->tryCacheResponse(request, response);
+          }
+          break;
+      }
+    }
+    else{ // not cached, get response from remote and try caching it
+      this->logger.log("not in cache");
+      response = this->receiveResponseFromRemote(request);
+      this->tryCacheResponse(request, response);
     }
 
-    Response response = this->receiveResponseFromRemote(request, remoteSocketFd);
     this->sendResponseToClient(clientInfo, response);
   }
   catch(std::exception& e){ // handling all server side error generically
@@ -151,13 +206,7 @@ void ProxyServer::processPostRequest(Request& request, ClientInfo* clientInfo){
   int status;
 
   try{
-    remoteSocketFd = this->createSocketAndConnectRemote(request.getHost().c_str(), request.getPort().c_str());
-    status = send(remoteSocketFd, request.getRawRequest().c_str(), request.getRawRequest().length(), 0);
-    if(status == -1){
-      throw ProxyServerException("error: failed to send request to " + request.getHost());
-    }
-
-    Response response = this->receiveResponseFromRemote(request, remoteSocketFd);
+    Response response = this->receiveResponseFromRemote(request);
     this->sendResponseToClient(clientInfo, response);
   }
   catch(std::exception& e){ // handling all server side error generically
@@ -224,4 +273,65 @@ void ProxyServer::performIOMultiplexing(std::vector<int>& fileDescriptors){
       }
     }
   }
+}
+
+void ProxyServer::tryCacheResponse(Request& request, Response& response){
+  switch (response.checkCacheability()){
+    case Response::Cacheability::NO_CACHE_PRIVATE:
+      this->logger.log("not cacheable, cache-control=private");
+      break;
+    
+    case Response::Cacheability::NO_CACHE_CHUNKED:
+      this->logger.log("not cacheable, chunked response");
+      break;
+    
+    case Response::Cacheability::NO_CACHE_NO_STORE:
+      this->logger.log("not cacheable, cache-control=no-store");
+      break;
+
+    case Response::Cacheability::NO_CACHE_BAD_RESPONSE_STATUS:
+      this->logger.log("not cacheable, status other than \"200 OK\"");
+      break;
+
+    case Response::Cacheability::CACHE_NEED_REVALIDATION:
+      this->logger.log("cached, but require revalidation");
+      this->cache.put(request, response, true);
+      break;
+
+    case Response::Cacheability::CACHE_WILL_EXPIRE:
+      this->logger.log("cached, but will expire");
+      this->cache.put(request, response, true);
+      break;
+
+    case Response::Cacheability::CACHE_DEFAULT:
+      this->logger.log("cached, no cache-control header, require revalidation");
+      this->cache.put(request, response, true);
+      break;
+
+    default:
+      this->logger.log("not cachable, unhandled cache-control status");
+      break;
+  }
+}
+
+Response ProxyServer::receiveRevalidationFromRemote(Request& request, Response& cachedResponse){
+  std::string revalidationRequestStr = request.getRawRequest();
+  std::string lineEnd = "\r\n";
+
+  revalidationRequestStr = revalidationRequestStr.substr(0, revalidationRequestStr.find("\r\n\r\n"));
+  revalidationRequestStr += lineEnd;
+
+  if(!cachedResponse.getETag().empty()){
+    revalidationRequestStr += ("If-None-Match: " + cachedResponse.getETag() + lineEnd);
+  }
+  if(!cachedResponse.getLastModified().empty()){
+    revalidationRequestStr += ("If-Modified-Since: " + cachedResponse.getLastModified() + lineEnd);
+  }
+  revalidationRequestStr += lineEnd;
+
+  RequestParser requestParser(revalidationRequestStr);
+  Request RevalidationRequest(requestParser);
+  Response revalidationResponse = this->receiveResponseFromRemote(RevalidationRequest);
+
+  return revalidationResponse;
 }

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "response-parser.h"
 
@@ -16,6 +17,7 @@ class Response{
     std::string lastModified;
     std::string eTag;
     std::string expires;
+    std::unordered_set<std::string> transferEncoding;
     std::unordered_map<std::string, std::string> cacheControl;    
 
   public:
@@ -26,11 +28,13 @@ class Response{
     };
 
     enum class Cacheability {
+      NO_CACHE_CHUNKED,             // chunked response
       NO_CACHE_PRIVATE,             // private
       NO_CACHE_NO_STORE,            // no-store
       NO_CACHE_BAD_RESPONSE_STATUS, // response not 200 OK
       CACHE_NEED_REVALIDATION,        // no-cache
-      CACHE_WILL_EXPIRE             // max-age || expires
+      CACHE_WILL_EXPIRE,             // max-age || expires
+      CACHE_DEFAULT                 // default case
     };
 
     Response(ResponseParser& parser);
@@ -47,9 +51,13 @@ class Response{
     std::string getLastModified() const;
     std::string getETag() const;
     std::string getExpires() const;
+    std::unordered_set<std::string> getTransferEncoding() const;
     std::unordered_map<std::string, std::string> getCacheControl() const;
 
     void getRemainingBodyFromRemote(int remoteSocketFd, int maxBufferSize);
+    Cacheability checkCacheability();
+    CachingStatus checkCachingStatus();
+    bool isChunked();
 };
 
 #endif

@@ -3,6 +3,7 @@
 
 #include <unordered_map>
 #include <queue>
+#include <shared_mutex>
 
 #include "cache.h"
 
@@ -12,6 +13,7 @@ class FifoCache: public Cache<K, V, Hash>{
   private:
     std::queue<K> fifoQueue;
     std::unordered_map<K, V, Hash> store;
+    std::shared_mutex cacheMutex;
 
     virtual void evict(){
       if(this->fifoQueue.empty()){
@@ -21,7 +23,7 @@ class FifoCache: public Cache<K, V, Hash>{
       K key = this->fifoQueue.front();
       this->fifoQueue.pop();
 
-      if(this->store.find(key) != this->store.end()){
+      if(this->store.contains(key)){
         this->store.erase(key);
       }
     }
@@ -32,7 +34,8 @@ class FifoCache: public Cache<K, V, Hash>{
     virtual ~FifoCache(){}
 
     virtual void put(K key, V value, bool force){
-      if(this->store.find(key) != this->store.end()){
+      std::unique_lock lock(this->cacheMutex);
+      if(this->store.contains(key)){
         if(force){
           this->store[key] = value;
         }
@@ -47,7 +50,8 @@ class FifoCache: public Cache<K, V, Hash>{
     }
 
     virtual std::optional<V> get(K& key){
-      if(this->store.find(key) == this->store.end()){
+      std::shared_lock lock(this->cacheMutex);
+      if(!this->store.contains(key)){
         return std::nullopt;
       }
       return this->store[key];

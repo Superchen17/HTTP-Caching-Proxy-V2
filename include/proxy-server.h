@@ -1,6 +1,8 @@
 #ifndef __PROXY_SERVER_H__
 #define __PROXY_SERVER_H__
 
+#include <shared_mutex>
+
 #include "tcp-server.h"
 #include "response-parser.h"
 #include "response.h"
@@ -11,15 +13,17 @@ class ProxyServer: public TcpServer{
   private:
     int maxBufferSize;
     Cache<Request, Response, Request::RequestHash>& cache;
-    
+        
     Response composeResponse(std::string status, std::string body);
     Request receiveRequestFromClient(ClientInfo* clientInfo);
     void sendResponseToClient(ClientInfo* clientInfo, Response& response);
-    Response receiveResponseFromRemote(Request& request, int remoteSocketFd);
+    Response receiveResponseFromRemote(Request& request);
     void processGetRequest(Request& request, ClientInfo* clientInfo);
     void processPostRequest(Request& request, ClientInfo* clientInfo);
     void processConnectRequest(Request& request, ClientInfo* clientInfo);
     void performIOMultiplexing(std::vector<int>& fileDescriptors);
+    void tryCacheResponse(Request& request, Response& response);
+    Response receiveRevalidationFromRemote(Request& request, Response& cachedResponse);
 
   public:
     ProxyServer(const char* hostname, const char* port, int backlogLength, 

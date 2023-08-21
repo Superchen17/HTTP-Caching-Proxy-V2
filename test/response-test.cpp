@@ -8,6 +8,7 @@ namespace{
     "Etag: \"64c7b8cd-20c8\"\r\n"
     "Last-Modified: Mon, 31 Jul 2023 13:36:13 GMT\r\n"
     "Content-Type: text/html\r\n"
+    "Transfer-Encoding: compress, gzip\r\n"
     "Content-Length: 2063\r\n"
     "Content-Encoding: gzip\r\n"
     "Cache-Control: max-age=42980, public\r\n"
@@ -37,7 +38,12 @@ namespace{
     EXPECT_EQ("\"64c7b8cd-20c8\"", response.getETag());
     EXPECT_EQ("Sun, 13 Aug 2023 16:10:44 GMT", response.getExpires());
 
+    std::unordered_set<std::string> expectedTransferEncoding{"gzip", "compress"};
+    EXPECT_EQ(expectedTransferEncoding, response.getTransferEncoding());
+
     std::unordered_map<std::string, std::string> expectedCacheControl({{"public", ""}, {"max-age", "42980"}});
     EXPECT_EQ(expectedCacheControl, response.getCacheControl());
+
+    EXPECT_FALSE(response.isChunked());
   }
 }

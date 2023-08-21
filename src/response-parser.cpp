@@ -1,5 +1,6 @@
 #include <unordered_set>
 #include <regex>
+#include <sstream>
 
 #include "response-parser.h"
 #include "exception.h"
@@ -27,7 +28,7 @@ std::string ResponseParser::parseHttpVersion(){
   std::unordered_set<std::string> allowedHttpVersions{
     "HTTP/0.9", "HTTP/1.0", "HTTP/1.1", "HTTP/2", "HTTP/3"
   };
-  if(allowedHttpVersions.find(httpVersion) == allowedHttpVersions.end()){
+  if(!allowedHttpVersions.contains(httpVersion)){
     throw ResponseParsingException(errMsg);
   }
   return httpVersion;
@@ -80,6 +81,25 @@ std::string ResponseParser::parseETag(){
 
 std::string ResponseParser::parseExpires(){
   return this->getValueFromHeader("Expires: ");
+}
+
+std::unordered_set<std::string> ResponseParser::parseTransferEncoding(){
+  std::unordered_set<std::string> transferEncoding;
+  std::string lineWithTransferEncoding = this->getValueFromHeader("Transfer-Encoding: ");
+  if(lineWithTransferEncoding.empty()){
+    return transferEncoding;
+  }
+  
+  std::string delimiter = ", ";
+  size_t delimiterPos;
+  while((delimiterPos = lineWithTransferEncoding.find(delimiter)) != std::string::npos){
+    std::string currentEncoding = lineWithTransferEncoding.substr(0, delimiterPos);
+    lineWithTransferEncoding = lineWithTransferEncoding.substr(delimiterPos + delimiter.length());
+    transferEncoding.insert(currentEncoding);
+  }
+  transferEncoding.insert(lineWithTransferEncoding);
+
+  return transferEncoding;
 }
 
 std::unordered_map<std::string, std::string> ResponseParser::parseCacheControl(){

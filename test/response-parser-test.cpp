@@ -117,6 +117,24 @@ namespace{
     }
   }
 
+  TEST(ResponseParser, parseTransferEncoding){
+    ResponseParser parser1(
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Length: 0\r\n\r\n"
+    );
+    std::unordered_set<std::string> expected1;
+    EXPECT_EQ(expected1, parser1.parseTransferEncoding());
+
+    ResponseParser parser2(
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: gzip, chunked, deflate\r\n\r\n"
+      "asdfasdf"
+      "\r\n\r\n"
+    );
+    std::unordered_set<std::string> expected2{"gzip", "deflate", "chunked"};
+    EXPECT_EQ(expected2, parser2.parseTransferEncoding());
+  }
+
   TEST(ResponseParser, parseCacheControl){
     ResponseParser parser1(response1);
     std::unordered_map<std::string, std::string> expected1({{"max-age", "42980"}, {"public", ""}});
