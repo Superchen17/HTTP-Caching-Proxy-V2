@@ -16,14 +16,16 @@ class ProxyServer: public TcpServer{
         
     Response composeResponse(std::string status, std::string body);
     Request receiveRequestFromClient(ClientInfo* clientInfo);
-    void sendResponseToClient(ClientInfo* clientInfo, Response& response);
+    void sendResponseToClient(ClientInfo* clientInfo, Response& response, bool cleanup=true);
     Response receiveResponseFromRemote(Request& request);
+    Response receiveFirstPacketFromRemote(Request& request, int remoteSocketFd);
     void processGetRequest(Request& request, ClientInfo* clientInfo);
     void processPostRequest(Request& request, ClientInfo* clientInfo);
     void processConnectRequest(Request& request, ClientInfo* clientInfo);
     void performIOMultiplexing(std::vector<int>& fileDescriptors);
     void tryCacheResponse(Request& request, Response& response);
     Response receiveRevalidationFromRemote(Request& request, Response& cachedResponse);
+    void relayChunks(Response& firstPacket, ClientInfo* clientInfo, int remoteSocketFd);
 
   public:
     ProxyServer(const char* hostname, const char* port, int backlogLength, 

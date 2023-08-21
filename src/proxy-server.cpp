@@ -98,7 +98,7 @@ Request ProxyServer::receiveRequestFromClient(ClientInfo* clientInfo){
   return request;
 }
 
-void ProxyServer::sendResponseToClient(ClientInfo* clientInfo, Response& response){
+void ProxyServer::sendResponseToClient(ClientInfo* clientInfo, Response& response, bool cleanup){
   int status = send(clientInfo->getClientSocketFd(), response.getRawResponse().c_str(), 
                     response.getRawResponse().length(), 0);
   if(status == -1){
@@ -106,13 +106,25 @@ void ProxyServer::sendResponseToClient(ClientInfo* clientInfo, Response& respons
         "error: cannot response to client " + 
         clientInfo->getClientAddr() + ":" + std::to_string(clientInfo->getClientPort()));
   }
-  close(clientInfo->getClientSocketFd());
-  delete clientInfo;
+  
+  if(cleanup){
+    close(clientInfo->getClientSocketFd());
+    delete clientInfo;
+  }
 }
 
 Response ProxyServer::receiveResponseFromRemote(Request& request){
   int remoteSocketFd = this->createSocketAndConnectRemote(request.getHost().c_str(), request.getPort().c_str());
+  Response response = this->receiveFirstPacketFromRemote(request, remoteSocketFd);
 
+  if(response.getContentLength() != -1){
+    response.getRemainingBodyFromRemote(remoteSocketFd, this->maxBufferSize);
+  }
+  close(remoteSocketFd);
+  return response;
+}
+
+Response ProxyServer::receiveFirstPacketFromRemote(Request& request, int remoteSocketFd){
   int status = send(remoteSocketFd, request.getRawRequest().c_str(), request.getRawRequest().length(), 0);
   if(status == -1){
     throw ProxyServerException("error: failed to send request to " + request.getHost());
@@ -126,10 +138,6 @@ Response ProxyServer::receiveResponseFromRemote(Request& request){
 
   ResponseParser responseParser(std::string(buffer.data(), recvLength));
   Response response(responseParser);
-  if(response.getContentLength() != -1){
-    response.getRemainingBodyFromRemote(remoteSocketFd, this->maxBufferSize);
-  }
-  close(remoteSocketFd);
   return response;
 }
 
@@ -186,14 +194,24 @@ void ProxyServer::processGetRequest(Request& request, ClientInfo* clientInfo){
           }
           break;
       }
+
+      this->sendResponseToClient(clientInfo, response);
     }
     else{ // not cached, get response from remote and try caching it
-      this->logger.log("not in cache");
-      response = this->receiveResponseFromRemote(request);
-      this->tryCacheResponse(request, response);
-    }
+      int remoteSocketFd = this->createSocketAndConnectRemote(request.getHost().c_str(), request.getPort().c_str());
+      response = this->receiveFirstPacketFromRemote(request, remoteSocketFd);
 
-    this->sendResponseToClient(clientInfo, response);
+      if(response.isChunked()){
+        this->logger.log("chunked response");
+        this->relayChunks(response, clientInfo, remoteSocketFd);
+      }
+      else{
+        this->logger.log("not in cache");
+        response.getRemainingBodyFromRemote(remoteSocketFd, this->maxBufferSize);
+        this->tryCacheResponse(request, response);
+        this->sendResponseToClient(clientInfo, response);
+      }
+    }
   }
   catch(std::exception& e){ // handling all server side error generically
     Response response = this->composeResponse("502 Bad Gateway", e.what());
@@ -334,4 +352,28 @@ Response ProxyServer::receiveRevalidationFromRemote(Request& request, Response& 
   Response revalidationResponse = this->receiveResponseFromRemote(RevalidationRequest);
 
   return revalidationResponse;
+}
+
+void ProxyServer::relayChunks(Response& firstPacket, ClientInfo* clientInfo, int remoteSocketFd){
+  this->sendResponseToClient(clientInfo, firstPacket, false);
+
+  while(true){
+    std::vector<char> buffer(this->maxBufferSize, 0);
+    int chunkSize = recv(remoteSocketFd, buffer.data(), buffer.size(), 0);
+    if(chunkSize <= 0){
+      break;;
+    }
+    int status = send(clientInfo->getClientSocketFd(), buffer.data(), chunkSize, 0);
+    
+    if(status == -1){
+      std::string errMsg = "failed to relay chunks back to " + 
+        clientInfo->getClientAddr() + ":" +  std::to_string(clientInfo->getClientPort());
+      this->logger.log(errMsg);
+      break;
+    }
+  }
+
+  close(remoteSocketFd);
+  close(clientInfo->getClientSocketFd());
+  delete(clientInfo);
 }
