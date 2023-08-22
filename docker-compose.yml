@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  proxy:
+    build:
+      context: .
+    command: bash -c "
+      rm -rf build
+      && mkdir build
+      && cd build
+      && cmake -DBUILD_TESTS=OFF ..
+      && make -j
+      && ./http-proxy"
+    ports:
+      - "8080:8080"
+      
