@@ -36,7 +36,7 @@ void TcpServer::createAddressInfo(const char* hostname, const char* port, addrin
    throw TcpServerException("error: cannot get address info from host");
   }
 
-  this->logger.log("created address info");
+  // this->logger.log("created address info");
 }
 
 void TcpServer::getRandomPort(addrinfo_t** hostInfoList){
@@ -50,7 +50,7 @@ int TcpServer::createSocket(addrinfo_t* hostInfoList){
   if(newSocket == -1){
     throw TcpServerException("error: cannot create socket");
   }
-  this->logger.log("created socket file descriptor " + std::to_string(newSocket));
+  // this->logger.log("created socket file descriptor " + std::to_string(newSocket));
   return newSocket;
 }
 
@@ -96,7 +96,7 @@ ClientInfo* TcpServer::acceptConnectionFromClient(){
   this->mutexSessionId.unlock();
 
   ClientInfo* clientInfo = new ClientInfo(clientSocketFd, clientAddr, clientPort, newSessionId);
-  this->logger.log("received connection from client, sessionID=" + std::to_string(newSessionId) + ", "
+  this->logger.log(std::to_string(newSessionId)  + ": received connection from client, "
     + "fd=" + std::to_string(clientSocketFd) + ", "
     + "clientAddr=" + clientAddr + ", "
     + "clientPort=" + std::to_string(clientPort) + ", "

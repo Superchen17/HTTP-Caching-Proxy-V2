@@ -58,6 +58,7 @@ int ProxyServer::createSocketAndConnectRemote(const char* hostname, const char* 
   int remoteSocketFd = this->createSocket(hostInfoList);
   int status = connect(remoteSocketFd, hostInfoList->ai_addr, hostInfoList->ai_addrlen);
   if(status == -1){
+    close(remoteSocketFd);
     std::string errMsg = 
       "error: cannot connect to remote server using file descriptor " + std::to_string(remoteSocketFd);
     throw ProxyServerException(errMsg.c_str());
@@ -102,13 +103,13 @@ void ProxyServer::sendResponseToClient(ClientInfo* clientInfo, Response& respons
   int status = send(clientInfo->getClientSocketFd(), response.getRawResponse().c_str(), 
                     response.getRawResponse().length(), 0);
   if(status == -1){
-     this->logger.log(
-        "error: cannot response to client " + 
-        clientInfo->getClientAddr() + ":" + std::to_string(clientInfo->getClientPort()));
+    this->logger.log(
+      std::to_string(clientInfo->getSessionId()) + ": error: cannot response to client " + 
+      clientInfo->getClientAddr() + ":" + std::to_string(clientInfo->getClientPort())
+    );
   }
   
   if(cleanup){
-    close(clientInfo->getClientSocketFd());
     delete clientInfo;
   }
 }
@@ -155,42 +156,48 @@ void ProxyServer::processGetRequest(Request& request, ClientInfo* clientInfo){
 
       switch (response.checkCachingStatus()){
         case Response::CachingStatus::VALID:
-          this->logger.log("in cache, valid");
+          this->logger.log(std::to_string(clientInfo->getSessionId()) + ": in cache, valid");
           break;
 
         case Response::CachingStatus::REQUIRE_REVALIDATION:
-          this->logger.log("in cache, requires revalidation");
+          this->logger.log(
+            std::to_string(clientInfo->getSessionId()) + ": in cache, requires revalidation"
+          );
           revalidationResponse = this->receiveRevalidationFromRemote(request, response);
 
           if(revalidationResponse.getStatus() == "304 Not Modified" 
           || revalidationResponse.getStatus() == "304 NOT MODIFIED"){
-            this->logger.log("revalidated, not modified");
+            this->logger.log(std::to_string(clientInfo->getSessionId()) + ": revalidated, not modified");
           }
           else{
-            this->logger.log("invalidated, respond with fresh response");
+            this->logger.log(
+              std::to_string(clientInfo->getSessionId()) + ": invalidated, respond with fresh response"
+            );
             response = revalidationResponse;
-            this->tryCacheResponse(request, response);
+            this->tryCacheResponse(request, response, clientInfo);
           }
           break;
 
         case Response::CachingStatus::EXPIRED:
-          this->logger.log("in cache, expired");
+          this->logger.log(std::to_string(clientInfo->getSessionId()) + ": in cache, expired");
           response = this->receiveResponseFromRemote(request);
-          this->tryCacheResponse(request, response);
+          this->tryCacheResponse(request, response, clientInfo);
           break;
 
         default:
-          this->logger.log("in cache, unhandled checking status, revalidate anyway");
+          this->logger.log(
+            std::to_string(clientInfo->getSessionId()) + ": in cache, unhandled checking status, revalidate anyway"
+          );
           revalidationResponse = this->receiveRevalidationFromRemote(request, response);
 
           if(revalidationResponse.getStatus() == "304 Not Modified" 
           || revalidationResponse.getStatus() == "304 NOT MODIFIED"){
-            this->logger.log("revalidated, not modified");
+            this->logger.log(std::to_string(clientInfo->getSessionId()) + ": revalidated, not modified");
           }
           else{
-            this->logger.log("invalidated, respond with fresh response");
+            this->logger.log(std::to_string(clientInfo->getSessionId()) + ": invalidated, respond with fresh response");
             response = revalidationResponse;
-            this->tryCacheResponse(request, response);
+            this->tryCacheResponse(request, response, clientInfo);
           }
           break;
       }
@@ -202,13 +209,13 @@ void ProxyServer::processGetRequest(Request& request, ClientInfo* clientInfo){
       response = this->receiveFirstPacketFromRemote(request, remoteSocketFd);
 
       if(response.isChunked()){
-        this->logger.log("chunked response");
+        this->logger.log(std::to_string(clientInfo->getSessionId()) + ": chunked response");
         this->relayChunks(response, clientInfo, remoteSocketFd);
       }
       else{
-        this->logger.log("not in cache");
+        this->logger.log(std::to_string(clientInfo->getSessionId()) + ": not in cache");
         response.getRemainingBodyFromRemote(remoteSocketFd, this->maxBufferSize);
-        this->tryCacheResponse(request, response);
+        this->tryCacheResponse(request, response, clientInfo);
         this->sendResponseToClient(clientInfo, response);
       }
     }
@@ -220,9 +227,6 @@ void ProxyServer::processGetRequest(Request& request, ClientInfo* clientInfo){
 }
 
 void ProxyServer::processPostRequest(Request& request, ClientInfo* clientInfo){
-  int remoteSocketFd;
-  int status;
-
   try{
     Response response = this->receiveResponseFromRemote(request);
     this->sendResponseToClient(clientInfo, response);
@@ -235,9 +239,19 @@ void ProxyServer::processPostRequest(Request& request, ClientInfo* clientInfo){
 
 void ProxyServer::processConnectRequest(Request& request, ClientInfo* clientInfo){
   // first make a connection to remote
-  int remoteSocketFd = this->createSocketAndConnectRemote(request.getHost().c_str(), request.getPort().c_str());
+  int remoteSocketFd;
   int clientSocketFd = clientInfo->getClientSocketFd();
-  int maxFd = std::max(remoteSocketFd, clientSocketFd) + 1;
+  
+  try{
+    remoteSocketFd = this->createSocketAndConnectRemote(
+      request.getHost().c_str(), request.getPort().c_str()
+    );
+  }
+  catch(std::exception &e){
+    Response response = this->composeResponse("502 Bad Gateway", e.what());
+    this->sendResponseToClient(clientInfo, response);
+    return;
+  }
 
   // send status 200 back to client
   Response response = this->composeResponse("200 OK",  "");
@@ -245,23 +259,21 @@ void ProxyServer::processConnectRequest(Request& request, ClientInfo* clientInfo
                     response.getRawResponse().length(), 0);
   if(status == -1){
     this->logger.log(
-      "error: failed to send connect success back to client " 
+      std::to_string(clientInfo->getSessionId()) + ": error: failed to send connect success back to client " 
       + clientInfo->getClientAddr() + ":" + std::to_string(clientInfo->getClientPort())
     );
-    close(clientSocketFd);
     delete clientInfo;
     return;
   }
 
   // start client <-> remote multiplexing
   std::vector<int> fileDescriptors{clientSocketFd, remoteSocketFd};
-  this->performIOMultiplexing(fileDescriptors);
-  close(clientSocketFd);
+  this->performIOMultiplexing(fileDescriptors, clientInfo);
   close(remoteSocketFd);
   delete clientInfo;
 }
 
-void ProxyServer::performIOMultiplexing(std::vector<int>& fileDescriptors){
+void ProxyServer::performIOMultiplexing(std::vector<int>& fileDescriptors, ClientInfo* clientInfo){
   int maxFd = *(std::max_element(fileDescriptors.begin(), fileDescriptors.end())) + 1;
   fd_set fdSet;
   while(true){
@@ -280,12 +292,12 @@ void ProxyServer::performIOMultiplexing(std::vector<int>& fileDescriptors){
           receivedLength = send(fileDescriptors[(i+1) % fileDescriptors.size()], buffer.data(),receivedLength, 0);
 
           if(receivedLength <= 0){
-            this->logger.log("tunnel closed");
+            this->logger.log(std::to_string(clientInfo->getSessionId()) + ": tunnel closed");
             return;
           }
         }
         else{
-          this->logger.log("tunnel closed");
+          this->logger.log(std::to_string(clientInfo->getSessionId()) + ": tunnel closed");
           return;
         }
       }
@@ -293,41 +305,49 @@ void ProxyServer::performIOMultiplexing(std::vector<int>& fileDescriptors){
   }
 }
 
-void ProxyServer::tryCacheResponse(Request& request, Response& response){
+void ProxyServer::tryCacheResponse(Request& request, Response& response, ClientInfo* clientInfo){
   switch (response.checkCacheability()){
     case Response::Cacheability::NO_CACHE_PRIVATE:
-      this->logger.log("not cacheable, cache-control=private");
+      this->logger.log(std::to_string(clientInfo->getSessionId())
+        + ": not cacheable, cache-control=private");
       break;
     
     case Response::Cacheability::NO_CACHE_CHUNKED:
-      this->logger.log("not cacheable, chunked response");
+      this->logger.log(std::to_string(clientInfo->getSessionId())
+        + ": not cacheable, chunked response");
       break;
     
     case Response::Cacheability::NO_CACHE_NO_STORE:
-      this->logger.log("not cacheable, cache-control=no-store");
+      this->logger.log(std::to_string(clientInfo->getSessionId())
+        + ": not cacheable, cache-control=no-store");
       break;
 
     case Response::Cacheability::NO_CACHE_BAD_RESPONSE_STATUS:
-      this->logger.log("not cacheable, status other than \"200 OK\"");
+      this->logger.log(std::to_string(clientInfo->getSessionId())
+        + ": not cacheable, status other than \"200 OK\"");
       break;
 
     case Response::Cacheability::CACHE_NEED_REVALIDATION:
-      this->logger.log("cached, but require revalidation");
+      this->logger.log(std::to_string(clientInfo->getSessionId())
+        + ": cached, but require revalidation");
       this->cache.put(request, response, true);
       break;
 
     case Response::Cacheability::CACHE_WILL_EXPIRE:
-      this->logger.log("cached, but will expire");
+      this->logger.log(std::to_string(clientInfo->getSessionId())
+        + ": cached, but will expire");
       this->cache.put(request, response, true);
       break;
 
     case Response::Cacheability::CACHE_DEFAULT:
-      this->logger.log("cached, no cache-control header, require revalidation");
+      this->logger.log(std::to_string(clientInfo->getSessionId())
+        + ": cached, no cache-control header, require revalidation");
       this->cache.put(request, response, true);
       break;
 
     default:
-      this->logger.log("not cachable, unhandled cache-control status");
+      this->logger.log(std::to_string(clientInfo->getSessionId())
+        + ": not cachable, unhandled cache-control status");
       break;
   }
 }
@@ -368,12 +388,11 @@ void ProxyServer::relayChunks(Response& firstPacket, ClientInfo* clientInfo, int
     if(status == -1){
       std::string errMsg = "failed to relay chunks back to " + 
         clientInfo->getClientAddr() + ":" +  std::to_string(clientInfo->getClientPort());
-      this->logger.log(errMsg);
+      this->logger.log(std::to_string(clientInfo->getSessionId()) + ": " + errMsg);
       break;
     }
   }
 
   close(remoteSocketFd);
-  close(clientInfo->getClientSocketFd());
   delete(clientInfo);
 }

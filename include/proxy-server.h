@@ -22,8 +22,8 @@ class ProxyServer: public TcpServer{
     void processGetRequest(Request& request, ClientInfo* clientInfo);
     void processPostRequest(Request& request, ClientInfo* clientInfo);
     void processConnectRequest(Request& request, ClientInfo* clientInfo);
-    void performIOMultiplexing(std::vector<int>& fileDescriptors);
-    void tryCacheResponse(Request& request, Response& response);
+    void performIOMultiplexing(std::vector<int>& fileDescriptors, ClientInfo* clientInfo);
+    void tryCacheResponse(Request& request, Response& response, ClientInfo* clientInfo);
     Response receiveRevalidationFromRemote(Request& request, Response& cachedResponse);
     void relayChunks(Response& firstPacket, ClientInfo* clientInfo, int remoteSocketFd);
 
