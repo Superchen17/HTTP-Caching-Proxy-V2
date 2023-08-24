@@ -1,38 +1,56 @@
 #include <iostream>
+#include <fstream>
 
 #include "logger.h"
 #include "exception.h"
+#include "datetime.h"
 
-Logger::Logger(){
-  this->debugLevel = AllDebugLevels::PRINT_ONLY;
-}
+Logger::Logger(Logger::AllDebugLevels debugLevel):
+  debugLevel(debugLevel), logFileName("/var/log/http-proxy/http-proxy.log"){}
 
-Logger::Logger(AllDebugLevels debugLevel){
-  this->debugLevel = debugLevel;
-}
+Logger::Logger(Logger::AllDebugLevels debugLevel, std::string logFileName): 
+  debugLevel(debugLevel), logFileName(logFileName){}
 
 Logger::~Logger(){}
 
-void Logger::log(std::string logInput){
+void Logger::log(std::string logInput, bool includeTimestamp){
+  if(includeTimestamp){
+    logInput = DateTime::timeToString(DateTime::getCurrentTime()) + " | " + logInput;
+  }
+
   switch (this->debugLevel){
-    case AllDebugLevels::NONE:
+    case Logger::AllDebugLevels::NONE:
       break;
 
-    case AllDebugLevels::PRINT_ONLY:
+    case Logger::AllDebugLevels::PRINT_ONLY:
       std::cout << logInput << std::endl;
       break;
 
-    case AllDebugLevels::PERSIST_ONLY:
-      // TODO
+    case Logger::AllDebugLevels::PERSIST_ONLY:
+      this->writeToLogFile(logInput);
       break;
 
-    case AllDebugLevels::PRINT_AND_PERSIST:
+    case Logger::AllDebugLevels::PRINT_AND_PERSIST:
       std::cout << logInput << std::endl;
-      // TODO
+      this->writeToLogFile(logInput);
       break;
 
     default:
       throw LoggerException("error: invalid logger debug level");
       break;
   }
+}
+
+void Logger::writeToLogFile(std::string logInput){
+  std::unique_lock lock(this->logFileMutex);
+
+  std::ofstream f;
+  f.open(this->logFileName, std::fstream::app);
+  if(!f){
+    std::cout << "cannot write to log file" << std::endl;
+    return;
+  }
+
+  f << logInput << std::endl;
+  f.close();
 }

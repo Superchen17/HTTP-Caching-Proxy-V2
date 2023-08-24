@@ -53,7 +53,7 @@ include/divisible/*
 .idea
 .vscode
 
-build/**/*
+build
 
 lib/*
 bin/*

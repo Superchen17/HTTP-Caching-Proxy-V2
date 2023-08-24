@@ -37,6 +37,8 @@ make -j
 ## Production Deployment
 The docker container exposes port `8080`
 ```bash
+sudo mkdir -p /var/log/http-proxy # create log folder on host
+sudo chown 1000:1000 /var/log/http-proxy # change owner, so can be mounted by docker
 docker-compose build
 docker-compose up -d
 ```
